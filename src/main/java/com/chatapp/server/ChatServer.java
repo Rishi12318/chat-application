@@ -10,6 +10,8 @@ import com.chatapp.util.MessageFormatter;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Deque;
+import java.util.ArrayDeque;
 
 public class ChatServer {
     private final int port;
@@ -129,6 +131,21 @@ public class ChatServer {
         String list = "USERS:" + CustomStringUtil.customJoin(",", clients.keys(), clients.size());
         requester.sendMessage(list);
     }
+
+    // Accessors for the HTTP status server
+    public int getClientCount() {
+        return clients.size();
+    }
+
+    public Deque<Message> getHistorySnapshot() {
+        Object[] snapshot = history.toSnapshot();
+        Deque<Message> dq = new ArrayDeque<>();
+        for (int i = 0; i < snapshot.length; i++) {
+            Message m = (Message) snapshot[i];
+            if (m != null) dq.addLast(m);
+        }
+        return dq;
+    }
     
     // Server main
     public static void main(String[] args) throws Exception {
@@ -137,6 +154,23 @@ public class ChatServer {
             try { port = CustomStringUtil.customParseInt(args[0]); } catch (NumberFormatException ignored) {}
         }
         final ChatServer server = new ChatServer(port);
+        // Start an HTTP status server for platform health checks.
+        String portEnv = System.getenv("PORT");
+        int httpPort;
+        if (portEnv != null) {
+            try { httpPort = Integer.parseInt(portEnv); } catch (NumberFormatException e) { httpPort = port + 1; }
+        } else {
+            httpPort = port + 1; // avoid colliding with chat port when running locally
+        }
+
+        try {
+            HttpStatusServer web = new HttpStatusServer(server, httpPort);
+            web.start();
+            System.out.println("HTTP status server started on port " + httpPort);
+        } catch (IOException e) {
+            System.err.println("Could not start HTTP status server: " + e.getMessage());
+        }
+
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             @Override
             public void run() {

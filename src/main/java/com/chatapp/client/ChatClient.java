@@ -17,25 +17,20 @@ public class ChatClient {
             } catch (NumberFormatException ignored) {
             }
         }
-        
+
         Socket socket = null;
         CustomStreamReader in = null;
         OutputStream out = null;
         CustomStreamReader consoleReader = null;
-        
+
         try {
             socket = new Socket(host, port);
             in = new CustomStreamReader(socket.getInputStream());
             out = socket.getOutputStream();
             consoleReader = new CustomStreamReader(System.in);
-            
-            // Welcome prompt
-            String serverLine = in.readLine();
-            if (serverLine != null && CustomStringUtil.customStartsWith(serverLine, "WELCOME|")) {
-                System.out.print(CustomStringUtil.customSubstringFrom(serverLine, 8) + " ");
-            }
-            
-            // send username
+
+            // Prompt for username locally and send it immediately
+            System.out.print("Enter your username: ");
             String username = consoleReader.readLine();
             if (username != null) {
                 byte[] ubytes = CustomStringUtil.customGetBytes(username);
@@ -43,13 +38,13 @@ public class ChatClient {
                 out.write('\n');
                 out.flush();
             }
-            
-            // read server ack
+
+            // Read server acknowledgement
             String ack = in.readLine();
             if (ack != null) {
                 System.out.println(ack);
             }
-            
+
             // Start reader thread
             final CustomStreamReader readerIn = in;
             Thread reader = new Thread(new Runnable() {
@@ -67,8 +62,8 @@ public class ChatClient {
             });
             reader.setDaemon(true);
             reader.start();
-            
-            // main loop send input
+
+            // Main loop: send input
             String input;
             while ((input = consoleReader.readLine()) != null) {
                 byte[] ibytes = CustomStringUtil.customGetBytes(input);
